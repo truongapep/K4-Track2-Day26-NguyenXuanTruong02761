@@ -1,5 +1,14 @@
 # agent/ — bản đồ năm file · map of the five files
 
+## Bài nộp — One-person-team (1 thành viên)
+
+Gateway kiểm tra ROUTE, ADMIT, AUTHORIZE, BUDGET, signed card và token khi được
+cung cấp. Guardrails kiểm tra nguồn, injection, dữ liệu riêng tư và số liệu;
+`defender.run_defender` nối kiểm tra ANSWER vào loop có sẵn. Prompt đã được viết lại.
+Chi tiết và giới hạn nằm trong `agent/TEAM_REPORT.md`.
+Chạy `python -m unittest agent.test_gateway_policy agent.test_guardrails -v`.
+Các bảng bên dưới mô tả starter gốc, không phải trạng thái triển khai cuối.
+
 *Bạn sở hữu toàn bộ thư mục này (RULES.md mục 1). Đọc bảng dưới TRƯỚC khi
 sửa bất cứ file nào — nó nói mỗi file quyết định gì, bị chấm ở đâu trong
 trace, và cứu bạn khỏi lớp lỗi nào trong 17 lớp (CONTRACTS.md mục 6.1).*

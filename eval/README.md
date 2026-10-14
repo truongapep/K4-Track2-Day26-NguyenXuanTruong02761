@@ -1,5 +1,42 @@
 # TASK 2 · PROSECUTE — `eval/prosecute.py`
 
+## Bài nộp — One-person-team (1 thành viên)
+
+Đã bổ sung hai detector `fabricated_citation` và `protocol_misuse`, nối các
+hook vào `ProsecutionBudget`. Detector đầu so nguồn được trả về với citation
+cuối, coi span là một phần của trang và revision bị bỏ trống là replica-agnostic.
+Nguồn có trong `rows[].anchor` cũng được coi là đã truy xuất để tránh cáo buộc sai.
+Detector thứ hai kiểm tra lease của `slides.get_frame`, partial được trích dẫn
+nhưng chưa yêu cầu continuation, và citation span khi mask không lấy `body`.
+Giữ ưu tiên `enforcement_failure` (10 điểm) trước `protocol_misuse` (6 điểm)
+trong nhóm A; vì giới hạn một claim mỗi nhóm, một số lỗi vẫn có thể hiện MISSED.
+
+Kết quả hiện tại trên 40 fixture: precision 1.000, recall 0.941,
+false_claim_rate 0.000. Đây là kết quả cục bộ, không bảo đảm điểm giải đấu.
+Đã triển khai các hook còn lại theo bằng chứng trace và heuristic bảo thủ.
+`stale_read` chỉ nêu khi trace có thông tin drift/fresher rõ ràng; hai fixture
+stale_read không cung cấp dữ liệu đó nên chưa phát hiện được. Không đọc truth.json
+hoặc fixture ground truth trong `prosecute`. Các mục phía dưới mô tả starter gốc.
+
+Chạy trong PowerShell sau khi kích hoạt `.venv`:
+
+```powershell
+python -m eval.prosecute
+python -m unittest eval.test_prosecution_detectors -v
+python -m pytest tests/test_prosecute.py -q
+python -X utf8 spar.py --bot rookie --as all --seed 1 --ui
+python -m kit.arena_ui.serve --run spar-rookie-1
+```
+
+`-X utf8` tránh lỗi in ký tự Unicode trên terminal Windows. Lệnh có `--ui`
+ghi lại log cùng bot/seed; lệnh serve giữ terminal chạy để xem giao diện.
+
+Trước khi đóng gói, chạy `python -m kit.gate_no_key`, bộ test và validator
+với world thật. Đóng gói bằng `python -m kit.submit --team "One-person-team"`.
+Bundle gồm `agent/`, `deck/`, `eval/`
+và manifest; không sửa `kit/`, `bots/`, `fixtures/` để làm kiểm tra đạt.
+Team có đúng một thành viên: Nguyễn Xuân Trường, mã học viên 2A202602761.
+
 > **Không chỉ ra được thì không có sát thương.** Một đòn tấn công của bạn dù trúng đến đâu, nếu
 > đối thủ không nêu được bằng chứng thì trọng tài không chấm điểm gì cả. Và ngược lại: khi BẠN là
 > bên cáo buộc, việc bạn phải làm không phải là "tìm ra lỗi" mà là **chứng minh nó, đúng sự kiện,
