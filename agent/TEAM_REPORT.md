@@ -1,83 +1,116 @@
-# Báo cáo bài làm — One-person-team
+# Báo cáo Lab 26 — COLOSSEUM
 
-Thành viên: **Nguyễn Xuân Trường — 2A202602761**.
+**Nhóm:** One-person-team  
+**Thành viên:** Nguyễn Xuân Trường  
+**MSSV:** 2A202602761  
+**Ngày kiểm tra cuối:** 14/10/2026
 
-## Phòng thủ
+## 1. Nội dung bài làm
 
-Gateway thực hiện bốn nhiệm vụ: định tuyến bằng header; kiểm tra lease và peer;
-kiểm tra learner/scope theo ctx.act; kiểm soát ngân sách và rate window.
-Không dùng ctx.sub làm quyền, không đoán canonical luôn mới hơn working.
-Write cần pin etag từ provenance đáng tin và key chưa được cho phép trong duel.
-Signed Agent Card dùng verify_card; structured delegation-token khi có dùng
-verify_delegation để kiểm tra signature, audience, TTL, replay và act.
-Không tự mint token trong gateway; các hàm mint chỉ dùng trong test.
+Bài này tôi thực hiện một mình, gồm ba phần: bộ bài tấn công trong `deck/`,
+chương trình công tố trong `eval/` và phần phòng thủ trong `agent/`.
+Tôi sử dụng bộ kit và dữ liệu world do bài lab cung cấp.
 
-Guardrails kiểm tra anchor theo trang/span/revision; nhận diện override imperative;
-che nội dung nguồn đánh dấu private cả trong text và trường cấu trúc; kiểm tra
-phép tính hai toán hạng và số liệu có nguồn. Khi thiếu nguồn/trường bắt buộc,
-wrapper trả câu trả lời abstained. Nếu nguồn có a/b mâu thuẫn, nêu rõ bất đồng.
-SafeEnvironment lọc hàng private/injection trước lượt model tiếp theo và kiểm tra
-ANSWER trước khi chuyển tới trusted executor; không thay quyền thực thi của arena.
-Prompt vẫn được nối sau prompt harness, giữ grammar và giới hạn lượt/thời gian.
+### Phòng thủ
 
-## Công tố
+Trong `agent/gateway.py`, tôi kiểm tra yêu cầu trước khi cho phép gọi công cụ.
+Các bước chính là kiểm tra công cụ có hợp lệ không, thông tin định tuyến có
+nằm trong header không, vé truy cập còn hiệu lực không và yêu cầu có đúng
+quyền của người học đang được phục vụ không. Gateway cũng tính chi phí dự
+kiến và giới hạn số lần gọi một số công cụ.
 
-17 entry point phát hiện lỗi theo L1 trace, câu trả lời và ask; các heuristic ngữ
-nghĩa chỉ nêu khi có dấu hiệu rõ. Budget giữ tối đa 4 claim, tối đa 1 mỗi family,
-argument tối đa 400 ký tự. Ưu tiên enforcement_failure trước protocol_misuse trong A.
-Không đọc file, truth.json, fixture đáp án, mạng hay đồng hồ trong prosecute.
+Với yêu cầu ghi dữ liệu, gateway yêu cầu có `If-Match` từ kết quả provenance
+đã nhận và `Idempotency-Key` để kiểm soát việc gọi lặp. Với các agent khác,
+tôi kiểm tra việc chấp nhận agent và kỹ năng được phép gọi. Nếu có token
+ủy quyền, chương trình dùng hàm kiểm tra của kit để kiểm tra token.
 
-Kết quả trên 40 fixture: precision **1.000**, recall **0.941**, F1 **0.970**,
-false_claim_rate **0.000**. Hai stale_read fixture thiếu metadata drift/fresher
-trong trace nên không nêu cáo buộc chỉ từ việc thấy citation `/c/`.
-Kết quả fixture là phép đo cục bộ, không bảo đảm điểm trọng tài giải đấu.
+Trong `agent/guardrails.py`, tôi bổ sung kiểm tra nguồn trích dẫn, một số
+dấu hiệu chèn chỉ dẫn, nội dung được đánh dấu riêng tư và phép tính đơn giản.
+`agent/defender.py` nối các kiểm tra này vào bước nhận kết quả và trả lời.
+Nếu câu trả lời thiếu nguồn hoặc thiếu trường bắt buộc, chương trình có
+thể trả lời rằng chưa đủ thông tin. Phần này chỉ hoạt động khi nơi chạy
+bài gọi wrapper đó.
 
-## Bộ bài
+### Công tố
 
-14 lá: 10 attack + 4 blank; giữ cân bằng layer/class và các anchor đã kiểm chứng
-trong world df8c55dabb35. Thay defense_event mọi attack thành gateway.denied để
-khớp proxy validator; schema_bomb dùng 24 hàng decoy thay vì dump 40 hàng mẫu.
-Lineup có 10 lá không lặp, đưa blk_01 vào round 3 để thử false positive trên câu
-hỏi sạch, thay atk_09. Các identity attack giữ ở cuối để tận dụng round scale.
-Đây là lựa chọn chiến thuật, không khẳng định tối ưu.
+Trong `eval/prosecute.py`, tôi dùng các sự kiện L1 để tìm bằng chứng về lỗi
+của bên phòng thủ. Mỗi cáo buộc có tên lớp lỗi, bằng chứng, kết quả mong
+đợi, kết quả quan sát được và phần giải thích. Chương trình giới hạn tối
+đa 4 cáo buộc trong một lượt, tối đa 1 cáo buộc trong mỗi nhóm lỗi và phần
+giải thích không quá 400 ký tự.
 
-Validator trên world thật: **0 failing checks, 1 warning** về lethality band.
-Proxy kit không chứng minh hoàn toàn lethality trong tournament.
+Hàm `prosecute` không đọc file, gọi mạng hoặc đọc đáp án ẩn khi xử lý trace.
+Với các lỗi cần hiểu nội dung câu trả lời, chương trình hiện dùng những
+dấu hiệu đơn giản nên chưa phát hiện được mọi trường hợp.
 
-## Kiểm tra cuối
+Trên 40 mẫu kiểm tra có sẵn, chương trình nộp 32 cáo buộc và cả 32 được
+scorer mẫu xác nhận. Precision là 1,000 và recall khoảng 0,941. Hai mẫu
+`stale_read` chưa được phát hiện vì trace không có đủ thông tin về độ lệch
+và replica mới hơn. Đây là kết quả trên mẫu, không phải điểm giải đấu.
 
-- Đúng phạm vi tương đương `make test`: G-KEY đạt; `pytest tests/` có
-  **4.607 passed, 1 failed, 7 skipped**. Mục “make test pass” **chưa đạt** trên
-  Windows hiện tại. Không coi test bổ sung đạt là thay thế cho bộ test BTC.
+### Bộ bài tấn công
 
-- 36 unittest bổ sung đạt: gateway 17, guardrails/wrapper 11, công tố 8.
-- Full pytest: **4.643 passed, 1 failed, 7 skipped**; lỗi duy nhất là test sandbox
-  Windows gọi libc.open không tồn tại. Không sửa/skip test để làm kết quả đạt giả.
-- G-KEY đạt; không thay kit/, bots/, fixtures/, tests/ hoặc RULES.md.
-- Trận all: Rookie seed 1 thắng **100–0**; Operator seed 2 thắng **75–0**;
-  Adversary seed 2 thua **16–25**. Không tuyên bố thắng mọi bot hoặc mọi seed.
+Bộ bài có 14 lá, gồm 10 lá tấn công và 4 lá trắng. Trong 10 lá tấn công có
+4 lá thuộc lớp MCP, 4 lá thuộc lớp A2A và 2 lá thuộc lớp gateway, bao phủ
+9 loại tấn công của lab.
 
-Spar dùng kế hoạch tool/answer cố định, không gọi prompt hoặc wrapper mới; vì vậy
-chỉ dùng test tích hợp loop để xác nhận wrapper hoạt động, không lấy điểm spar
-làm bằng chứng hiệu quả guardrails. Spar cũng tạo gateway mỗi exchange và chưa
-cập nhật đầy đủ lease/history; test riêng kiểm tra state qua nhiều round.
+Thứ tự chơi được lưu trong `deck/lineup.json`, gồm 10 lá không lặp. Tôi đặt
+một lá trắng ở lượt 3 để thử cách xử lý câu hỏi sạch. Lá `replica_flip`
+dùng `path_id=e0614beb`, thuộc tập có độ lệch trong world được cung cấp.
 
-## Giới hạn thực tế
+## 2. Kết quả kiểm tra trước khi nộp
 
-Heuristic injection/semantic/quantity không hiểu được mọi paraphrase, phủ định
-hay phép tính phức tạp. Cần nguồn private đáng tin để redact; không thể suy ra mọi
-dữ liệu nhạy cảm từ văn bản không có metadata. Prompt có thể được arena sử dụng
-độc lập; wrapper chỉ có hiệu lực khi caller dùng run_defender.
-Token chưa có trên command chỉ đi qua trusted peer admission/harness path;
-gateway không tuyên bố đã verify token không được cung cấp.
-Pacing dự toán theo tool spec; số lần write/rate đếm lần cho phép nên bảo thủ
-khi executor thất bại. Sandbox macOS chưa thể đo trên Windows này.
+Tôi dùng Ubuntu 26.04.1 LTS chạy trên WSL2, Python 3.12.9 và môi trường
+Python riêng cho Linux. Các lệnh kiểm tra vẫn dùng target trong Makefile;
+tham số `BIN` chỉ chọn đường dẫn môi trường Python này.
 
-## Nộp bài
+| Nội dung kiểm tra | Kết quả |
+|---|---|
+| `make test` | 4.608 passed, 7 skipped, không có failed. |
+| `make validate` | 0 failing checks, không có FAIL; có 1 WARN về lethality. |
+| `make doctor` | Đạt, có thông báo `ready to spar.` |
+| 36 unittest bổ sung của bài làm | Cả 36 test đều đạt. |
+| Git status của `kit/`, `bots/`, `fixtures/` | Không có thay đổi khi đối chiếu theo thiết lập của checkout Windows. |
+| Kiểm tra import và G-KEY | Không phát hiện thư viện bên thứ ba hoặc import bị cấm; G-KEY đạt. Các import `kit`, `agent`, `eval` là module nội bộ của lab. |
+| Bundle | Đã tạo `submissions/One-person-team.bundle`; nội dung, manifest và hash từng file khớp với bản nguồn hiện tại. |
+| Thông tin thành viên | `K4-DAY26-One-person-team/TEAMMATES.md` có đủ họ tên, MSSV, tên nhóm và vai trò. |
 
-Repository của bài: https://github.com/truongapep/K4-Track2-Day26-NguyenXuanTruong02761.git
+Trước đó, chạy bộ test trên Windows có một lỗi do thư viện `msvcrt` không
+có hàm `open` mà test sử dụng. Khi chạy lại trên Ubuntu WSL2, test này đã
+đạt. Tôi không sửa test hoặc các thư mục được bảo vệ để xử lý lỗi đó.
 
-Thư mục giao bài cục bộ:
+Các test dành riêng cho sandbox macOS không chạy trên Linux theo điều
+kiện có sẵn của kit. Vì vậy, kết quả pass trên Ubuntu chưa xác nhận được
+sandbox macOS. Cảnh báo lethality cũng cho biết validator chỉ kiểm tra
+theo các điều kiện cục bộ, chưa chứng minh kết quả trên arena thật.
+
+Log kiểm tra được giữ ngoài gói nộp, trong `../wsl-final-checks/`.
+
+Dự án nằm trên ổ Windows nên khi kiểm tra bằng Git trong WSL, tôi dùng
+`-c core.autocrlf=true -c core.filemode=false` để đối chiếu đúng cách xử lý
+xuống dòng và quyền file của checkout này. Lệnh trả về không có thay đổi;
+tôi không sửa nội dung các file được bảo vệ hoặc lưu lại cấu hình Git.
+
+## 3. Giới hạn và phần cần cải thiện
+
+Bộ test hiện tại đã đạt, nhưng vẫn còn những điểm cần cải thiện trong code.
+Đích ghi `learner` và `anchor` cần được ràng buộc chặt hơn; sau lỗi conflict
+cần bắt buộc đọc lại provenance trước khi thử ghi lại. Giới hạn chi tiêu
+hiện là 12 credits mỗi vòng, trong khi referee dùng ngưỡng 11.
+
+Phần kiểm tra câu trả lời cần xử lý nguồn từ kết quả một phần cẩn thận hơn.
+Prosecutor cũng cần tối ưu một vòng lặp để tránh vượt 5 giây trên trace
+stress lớn. Các kiểm tra nội dung bằng mẫu và từ khóa chưa hiểu được mọi
+cách diễn đạt. Việc sửa báo cáo lần này không thay đổi các phần code đó.
+
+Spar dùng kế hoạch gọi công cụ và câu trả lời có sẵn, nên kết quả spar
+không đủ để kết luận toàn bộ phần kiểm tra câu trả lời đã hoạt động trong
+giải đấu. Hash kit trong bundle đã được đối chiếu với file hiện tại;
+hash gate của giảng viên với bản gốc nhận ban đầu chưa được kiểm tra ở đây.
+
+## 4. Gói bài nộp
+
+Thư mục giao bài gồm:
 
 ```text
 K4-DAY26-One-person-team/
@@ -85,18 +118,17 @@ K4-DAY26-One-person-team/
 └── One-person-team.bundle
 ```
 
-Bundle được tạo bằng kit.submit với tên team chính xác, bao gồm agent/, deck/,
-eval/, MANIFEST.json và hash kit. Báo cáo team nằm trong agent/ của bundle.
-TEAMMATES.md ở ngoài bundle theo cấu trúc được yêu cầu. Không chứa .venv, world,
-token đăng nhập, runs hoặc cache. Agent/deck khóa lúc bắt đầu session theo luật.
-Đóng gói tạo file cục bộ; nộp bằng kênh do BTC quy định, chưa tự gửi lên GitHub.
+Bundle được tạo bằng `make submit`, chứa `agent/`, `deck/`, `eval/` và
+`MANIFEST.json`. Báo cáo này nằm trong `agent/` của bundle. Bản bundle
+trong thư mục giao bài được đồng bộ với bản trong `submissions/`.
+Không đóng gói môi trường Python, world, cache hoặc log kiểm tra.
 
-```powershell
-python -m unittest agent.test_gateway_policy agent.test_guardrails eval.test_prosecution_detectors -v
-python -m pytest tests/ agent/test_gateway_policy.py agent/test_guardrails.py eval/test_prosecution_detectors.py -q
-python -m eval.prosecute
-python -m kit.gate_no_key
-python validate_deck.py deck/deck.json deck/lineup.json --world kit/world/df8c55dabb35/
-python -m kit.submit --team "One-person-team"
-Copy-Item -LiteralPath ".\submissions\One-person-team.bundle" -Destination ".\K4-DAY26-One-person-team\One-person-team.bundle" -Force
+Các lệnh chạy lại trên Ubuntu, từ thư mục gốc của dự án:
+
+```bash
+make test BIN="$HOME/.venvs/day26-check/bin"
+make validate BIN="$HOME/.venvs/day26-check/bin"
+make doctor BIN="$HOME/.venvs/day26-check/bin"
+make submit BIN="$HOME/.venvs/day26-check/bin" TEAM=One-person-team
+cp submissions/One-person-team.bundle K4-DAY26-One-person-team/One-person-team.bundle
 ```
